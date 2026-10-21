@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { staffAuthService } from '../services/staffAuth';
+import { Link } from 'react-router-dom';
+import { staffAuthService, PRIMARY_OWNER_ID } from '../services/staffAuth';
 import type { StaffMember, StaffRole, StaffAuditLog } from '../services/staffAuth';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -20,14 +21,8 @@ import {
 } from 'lucide-react';
 
 export const StaffPage: React.FC = () => {
-  const { currentUser, loginWithDiscord, loginWithId, logout, isVerifying } = useAuth();
-  const [discordIdInput, setDiscordIdInput] = useState('');
-  const [customUsernameInput, setCustomUsernameInput] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'whitelist' | 'generator' | 'runbooks' | 'templates' | 'appearance' | 'audit'
-  >('overview');
-
+  const { currentUser, loginWithDiscord, logout, isVerifying } = useAuth();
+  
   // Whitelist management state
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [newDiscordId, setNewDiscordId] = useState('');
@@ -35,10 +30,6 @@ export const StaffPage: React.FC = () => {
   const [newRole, setNewRole] = useState<StaffRole>('Moderator');
   const [newNotes, setNewNotes] = useState('');
   const [whitelistMsg, setWhitelistMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Owner settings state
-  const [ownerIdInput, setOwnerIdInput] = useState('');
-  const [ownerMsg, setOwnerMsg] = useState('');
 
   // Command generator state
   const [genCmdType, setGenCmdType] = useState<'modrole' | 'jail' | 'timeout' | 'purge' | 'banid'>('modrole');
@@ -53,36 +44,29 @@ export const StaffPage: React.FC = () => {
 
   // Template copy state
   const [copiedTemplate, setCopiedTemplate] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Audit search & filter state
   const [auditLogs, setAuditLogs] = useState<StaffAuditLog[]>([]);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditFilter, setAuditFilter] = useState<string>('All');
 
-  // Toggle manual ID login fallback
-  const [showManualLogin, setShowManualLogin] = useState(false);
+  // Check if current user is owner (Frosty / 1094287436881862736)
+  const isOwner = currentUser ? staffAuthService.isOwner(currentUser.discordId) : false;
+  const isStaff = currentUser?.isStaff || isOwner;
+
+  // Default active tab to 'whitelist' for the Owner
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'whitelist' | 'generator' | 'runbooks' | 'templates' | 'appearance' | 'audit'
+  >('whitelist');
 
   useEffect(() => {
     setStaffList(staffAuthService.getStaffList());
-    setOwnerIdInput(staffAuthService.getOwnerId());
     setAuditLogs(staffAuthService.getAuditLogs());
-  }, [currentUser]);
-
-  const handleManualLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    try {
-      loginWithId(discordIdInput, customUsernameInput);
-      setStaffList(staffAuthService.getStaffList());
-      setAuditLogs(staffAuthService.getAuditLogs());
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setLoginError(err.message);
-      } else {
-        setLoginError('Authentication failed.');
-      }
+    if (isOwner) {
+      setActiveTab('whitelist');
     }
-  };
+  }, [currentUser, isOwner]);
 
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +84,7 @@ export const StaffPage: React.FC = () => {
     );
 
     if (res.success) {
-      setWhitelistMsg({ type: 'success', text: `Authorized Discord User ID ${newDiscordId} as ${newRole}.` });
+      setWhitelistMsg({ type: 'success', text: `Authorized Discord User ID ${newDiscordId} as ${newRole}. They can now log in!` });
       setStaffList(staffAuthService.getStaffList());
       setAuditLogs(staffAuthService.getAuditLogs());
       setNewDiscordId('');
@@ -118,21 +102,11 @@ export const StaffPage: React.FC = () => {
       if (res.success) {
         setStaffList(staffAuthService.getStaffList());
         setAuditLogs(staffAuthService.getAuditLogs());
-        setWhitelistMsg({ type: 'success', text: `Revoked access for Discord ID ${targetId}.` });
+        setWhitelistMsg({ type: 'success', text: `Revoked staff access for Discord ID ${targetId}.` });
       } else {
         setWhitelistMsg({ type: 'error', text: res.error || 'Failed to revoke access.' });
       }
     }
-  };
-
-  const handleSaveOwnerId = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ownerIdInput.trim()) return;
-    staffAuthService.setOwnerId(ownerIdInput);
-    setStaffList(staffAuthService.getStaffList());
-    setAuditLogs(staffAuthService.getAuditLogs());
-    setOwnerMsg(`Website owner Discord ID set to ${ownerIdInput.trim()}`);
-    setTimeout(() => setOwnerMsg(''), 3000);
   };
 
   const getGeneratedCommand = (): string => {
@@ -157,6 +131,9 @@ export const StaffPage: React.FC = () => {
     if (id === 'cmd') {
       setCopiedCmd(true);
       setTimeout(() => setCopiedCmd(false), 2000);
+    } else if (id.startsWith('id-')) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
     } else {
       setCopiedTemplate(id);
       setTimeout(() => setCopiedTemplate(null), 2000);
@@ -181,7 +158,7 @@ export const StaffPage: React.FC = () => {
   });
 
   // ==========================================
-  // VIEW 1: NOT LOGGED IN AT ALL
+  // VIEW 1: NOT LOGGED IN
   // ==========================================
   if (!currentUser) {
     return (
@@ -219,76 +196,11 @@ export const StaffPage: React.FC = () => {
                   <span>Login with Discord</span>
                 </button>
 
-                {loginError && (
-                  <div className="p-3 rounded bg-[#160b0b] border border-[#3b1212] text-xs text-rose-300 leading-relaxed text-left">
-                    {loginError}
-                  </div>
-                )}
-
-                {/* Secondary Option: Direct ID Login */}
-                <div className="pt-2 border-t border-[#141414] text-left">
-                  <button
-                    onClick={() => setShowManualLogin(!showManualLogin)}
-                    className="text-[11px] font-mono text-[#737373] hover:text-[#d4d4d4] transition-colors flex items-center justify-between w-full"
-                  >
-                    <span>{showManualLogin ? 'Hide manual ID sign in' : 'Or verify with Discord User ID directly'}</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-
-                  {showManualLogin && (
-                    <form onSubmit={handleManualLogin} className="space-y-3 pt-3">
-                      <div className="space-y-1">
-                        <label className="text-[11px] text-[#a3a3a3]">Discord User ID</label>
-                        <input
-                          type="text"
-                          value={discordIdInput}
-                          onChange={(e) => setDiscordIdInput(e.target.value)}
-                          placeholder="e.g. 1562050707081662538"
-                          className="w-full px-3 py-2 rounded bg-[#000000] border border-[#222222] text-white text-xs font-mono placeholder-[#555] focus:outline-none focus:border-[#444]"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[11px] text-[#a3a3a3]">Display Name (Optional)</label>
-                        <input
-                          type="text"
-                          value={customUsernameInput}
-                          onChange={(e) => setCustomUsernameInput(e.target.value)}
-                          placeholder="e.g. John"
-                          className="w-full px-3 py-2 rounded bg-[#000000] border border-[#222222] text-white text-xs placeholder-[#555] focus:outline-none focus:border-[#444]"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        className="w-full py-2 rounded text-xs font-medium text-white bg-[#141414] hover:bg-[#1f1f1f] border border-[#262626] transition-colors"
-                      >
-                        Verify & Sign In
-                      </button>
-                    </form>
-                  )}
-                </div>
-
-                {/* Owner setup */}
-                <div className="pt-2 border-t border-[#141414] text-[11px] text-[#666] text-left space-y-1">
-                  <div>
-                    <strong className="text-[#888]">Website Owner Setup:</strong> Configure your Discord owner ID below:
-                  </div>
-                  <form onSubmit={handleSaveOwnerId} className="flex gap-2 pt-1">
-                    <input
-                      type="text"
-                      value={ownerIdInput}
-                      onChange={(e) => setOwnerIdInput(e.target.value)}
-                      placeholder="Owner Discord ID"
-                      className="flex-1 px-2.5 py-1 rounded bg-[#000] border border-[#1c1c1c] text-white text-xs font-mono"
-                    />
-                    <button
-                      type="submit"
-                      className="px-3 py-1 rounded bg-[#141414] text-xs text-white border border-[#262626] hover:bg-[#1f1f1f]"
-                    >
-                      Save ID
-                    </button>
-                  </form>
-                  {ownerMsg && <p className="text-emerald-400 text-[10px] pt-1">{ownerMsg}</p>}
+                <div className="pt-3 border-t border-[#141414] space-y-1 text-[11px] text-[#666] text-center">
+                  <p>Sign in is authenticated directly with Discord OAuth2.</p>
+                  <p className="text-[10px] text-[#555]">
+                    Root Owner: Frosty (<code className="text-[#888] font-mono">1094287436881862736</code>)
+                  </p>
                 </div>
               </>
             )}
@@ -299,9 +211,9 @@ export const StaffPage: React.FC = () => {
   }
 
   // ==========================================
-  // VIEW 2: LOGGED IN BUT REGULAR COMMUNITY MEMBER (NOT ON STAFF WHITELIST)
+  // VIEW 2: LOGGED IN AS REGULAR COMMUNITY MEMBER (NOT OWNER & NOT ON STAFF WHITELIST)
   // ==========================================
-  if (!currentUser.isStaff) {
+  if (!isStaff) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-16 text-center">
         <div className="w-full max-w-md p-7 rounded-2xl bg-[#080808] border border-[#171717] space-y-5 text-left">
@@ -335,7 +247,7 @@ export const StaffPage: React.FC = () => {
               You are logged in with Discord. However, your User ID (<code className="text-white font-mono">{currentUser.discordId}</code>) is not currently on the staff whitelist.
             </p>
             <p className="text-xs text-[#666] leading-relaxed">
-              If you are a server moderator, ask the website owner to authorize your Discord ID in the staff whitelist.
+              If you are a server moderator, ask the bot owner Frosty (<code className="text-white font-mono">1094287436881862736</code>) to authorize your Discord ID in the staff whitelist.
             </p>
           </div>
 
@@ -362,12 +274,51 @@ export const StaffPage: React.FC = () => {
   }
 
   // ==========================================
-  // VIEW 3: AUTHENTICATED STAFF DASHBOARD (OWNER / ADMIN / MODERATOR)
+  // VIEW 3: OWNER & STAFF DASHBOARD
   // ==========================================
-  const isOwnerOrAdmin = currentUser.isOwner || currentUser.role === 'Administrator';
+  const isOwnerOrAdmin = isOwner || currentUser.role === 'Administrator';
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 text-left">
+      {/* SPECIAL BOT OWNER BANNER FOR FROSTY */}
+      {isOwner && (
+        <div className="p-5 rounded-2xl bg-[#090909] border border-[#262626] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono uppercase tracking-widest text-white font-semibold flex items-center gap-1.5">
+                <span>👑</span>
+                <span>BOT OWNER PANEL</span>
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-black font-bold">
+                ROOT AUTHORITY
+              </span>
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight">
+              Welcome Frosty (@{currentUser.username || 'wenpathy'})
+            </h2>
+            <p className="text-xs text-[#888]">
+              Verified Discord Owner ID: <code className="text-white font-mono">{PRIMARY_OWNER_ID}</code>. Use the whitelist below to authorize or remove staff members.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setActiveTab('whitelist')}
+              className="px-3.5 py-2 rounded-lg text-xs font-semibold text-black bg-white hover:bg-[#e0e0e0] transition-colors"
+            >
+              + Whitelist People
+            </button>
+            <Link
+              to="/owner"
+              className="px-3.5 py-2 rounded-lg text-xs font-semibold text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 transition-colors flex items-center gap-1.5"
+            >
+              <span>👑 Open Master Owner Panel</span>
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Top Staff Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#141414] pb-5">
         <div className="space-y-1">
@@ -376,7 +327,7 @@ export const StaffPage: React.FC = () => {
               Staff Management Portal
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#141414] text-white border border-[#222]">
-              {currentUser.role}
+              {isOwner ? 'Bot Owner' : currentUser.role}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -396,7 +347,9 @@ export const StaffPage: React.FC = () => {
           <div className="text-right text-xs">
             <div className="font-medium text-white flex items-center gap-1.5 justify-end">
               <span>{currentUser.displayName}</span>
-              <span className="text-[#666] font-mono text-[11px]">(@{currentUser.username})</span>
+              {currentUser.username && (
+                <span className="text-[#666] font-mono text-[11px]">(@{currentUser.username})</span>
+              )}
             </div>
             <div className="text-[10px] font-mono text-[#666]">ID: {currentUser.discordId}</div>
           </div>
@@ -412,17 +365,6 @@ export const StaffPage: React.FC = () => {
 
       {/* Panel Navigation Tabs */}
       <div className="flex flex-wrap gap-1.5 border-b border-[#141414] pb-3 text-xs">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
-            activeTab === 'overview'
-              ? 'bg-white text-black font-semibold'
-              : 'text-[#888] hover:text-white hover:bg-[#111]'
-          }`}
-        >
-          <span>Overview</span>
-        </button>
-
         {isOwnerOrAdmin && (
           <button
             onClick={() => setActiveTab('whitelist')}
@@ -433,12 +375,23 @@ export const StaffPage: React.FC = () => {
             }`}
           >
             <UserCheck className="w-3.5 h-3.5" />
-            <span>Staff Whitelist</span>
+            <span>Whitelist People (Owner)</span>
             <span className="text-[10px] font-mono bg-[#222] text-white px-1.5 py-0.2 rounded">
               {staffList.length}
             </span>
           </button>
         )}
+
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
+            activeTab === 'overview'
+              ? 'bg-white text-black font-semibold'
+              : 'text-[#888] hover:text-white hover:bg-[#111]'
+          }`}
+        >
+          <span>Overview</span>
+        </button>
 
         <button
           onClick={() => setActiveTab('generator')}
@@ -470,7 +423,7 @@ export const StaffPage: React.FC = () => {
             activeTab === 'templates'
               ? 'bg-white text-black font-semibold'
               : 'text-[#888] hover:text-white hover:bg-[#111]'
-            }`}
+          }`}
         >
           <FileText className="w-3.5 h-3.5" />
           <span>Reason Templates</span>
@@ -505,13 +458,180 @@ export const StaffPage: React.FC = () => {
       </div>
 
       {/* ========================================================
-          TAB 1: OVERVIEW & SYSTEM HEALTH
+          TAB: WHITELIST PEOPLE (OWNER SPECIAL PANEL)
+          ======================================================== */}
+      {activeTab === 'whitelist' && isOwnerOrAdmin && (
+        <div className="space-y-6">
+          {/* Add Staff Form */}
+          <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-white" />
+                <span>Whitelist Discord User ID</span>
+              </h3>
+              <p className="text-xs text-[#888]">
+                Enter any person&apos;s Discord snowflake ID. Once added, logging in with Discord allows them to access the staff panel.
+              </p>
+            </div>
+
+            <form onSubmit={handleAddStaff} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-[#a3a3a3] font-medium">Discord User ID *</label>
+                <input
+                  type="text"
+                  value={newDiscordId}
+                  onChange={(e) => setNewDiscordId(e.target.value)}
+                  placeholder="e.g. 987654321098765432"
+                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white font-mono focus:outline-none focus:border-[#444]"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#a3a3a3] font-medium">Name / Nickname</label>
+                <input
+                  type="text"
+                  value={newDisplayName}
+                  onChange={(e) => setNewDisplayName(e.target.value)}
+                  placeholder="e.g. Moderator Alex"
+                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white focus:outline-none focus:border-[#444]"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#a3a3a3] font-medium">Assigned Staff Role</label>
+                <select
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value as StaffRole)}
+                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white focus:outline-none focus:border-[#444]"
+                >
+                  <option value="Administrator">Administrator</option>
+                  <option value="Senior Moderator">Senior Moderator</option>
+                  <option value="Moderator">Moderator</option>
+                  <option value="Support">Support Staff</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[#a3a3a3] font-medium">Action</label>
+                <button
+                  type="submit"
+                  className="w-full py-2 rounded font-semibold text-black bg-white hover:bg-[#e0e0e0] transition-colors"
+                >
+                  Grant Staff Access
+                </button>
+              </div>
+            </form>
+
+            {whitelistMsg && (
+              <div
+                className={`p-2.5 rounded text-xs ${
+                  whitelistMsg.type === 'success'
+                    ? 'bg-[#0a140a] border border-[#153015] text-emerald-300'
+                    : 'bg-[#140a0a] border border-[#301515] text-rose-300'
+                }`}
+              >
+                {whitelistMsg.text}
+              </div>
+            )}
+          </div>
+
+          {/* Current Whitelisted People Table */}
+          <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white tracking-tight">
+                Whitelisted Staff ({staffList.length})
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#171717] text-[#555] font-mono text-[10px]">
+                    <th className="py-2 px-2.5">Discord ID</th>
+                    <th className="py-2 px-2.5">Display Name & Username</th>
+                    <th className="py-2 px-2.5">Role</th>
+                    <th className="py-2 px-2.5">Added Date</th>
+                    <th className="py-2 px-2.5">Authorized By</th>
+                    <th className="py-2 px-2.5 text-right">Revoke Access</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#121212]">
+                  {staffList.map((m) => {
+                    const isAccountOwner = m.discordId === PRIMARY_OWNER_ID || m.role === 'Owner';
+                    return (
+                      <tr key={m.discordId} className="hover:bg-[#0d0d0d]">
+                        <td className="py-2.5 px-2.5 font-mono text-white">
+                          <div className="flex items-center gap-1.5">
+                            <span>{m.discordId}</span>
+                            <button
+                              onClick={() => copyToClipboard(m.discordId, `id-${m.discordId}`)}
+                              className="text-[#555] hover:text-white"
+                              title="Copy ID"
+                            >
+                              {copiedId === `id-${m.discordId}` ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-2.5">
+                          <div className="font-medium text-[#ededed] flex items-center gap-1.5">
+                            <span>{m.displayName}</span>
+                            {isAccountOwner && <span className="text-[10px] text-amber-400">👑</span>}
+                          </div>
+                          {m.username && (
+                            <div className="text-[10px] font-mono text-[#666]">@{m.username}</div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2.5">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase ${
+                              isAccountOwner
+                                ? 'bg-white text-black font-semibold'
+                                : m.role === 'Administrator'
+                                ? 'bg-[#181818] text-[#e0e0e0] border border-[#2c2c2c]'
+                                : 'bg-[#121212] text-[#888] border border-[#1f1f1f]'
+                            }`}
+                          >
+                            {m.role}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-2.5 text-[#666] font-mono text-[11px]">{m.addedAt}</td>
+                        <td className="py-2.5 px-2.5 text-[#666]">{m.addedBy}</td>
+                        <td className="py-2.5 px-2.5 text-right">
+                          {!isAccountOwner && m.discordId !== currentUser.discordId ? (
+                            <button
+                              onClick={() => handleRemoveStaff(m.discordId)}
+                              className="p-1 rounded text-rose-400 hover:text-white hover:bg-rose-950/40 transition-colors"
+                              title="Revoke access"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-[#444] italic">Root Owner</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          TAB: OVERVIEW
           ======================================================== */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl bg-[#080808] border border-[#171717] space-y-1">
-              <span className="text-[10px] font-mono uppercase text-[#666]">Authorized Staff</span>
+              <span className="text-[10px] font-mono uppercase text-[#666]">Whitelisted Staff</span>
               <div className="text-2xl font-bold text-white font-mono">{staffList.length}</div>
               <p className="text-[11px] text-[#737373]">Active Discord user IDs on whitelist.</p>
             </div>
@@ -530,8 +650,8 @@ export const StaffPage: React.FC = () => {
 
             <div className="p-4 rounded-xl bg-[#080808] border border-[#171717] space-y-1">
               <span className="text-[10px] font-mono uppercase text-[#666]">Your Status</span>
-              <div className="text-2xl font-bold text-white font-mono">{currentUser.role}</div>
-              <p className="text-[11px] text-[#737373]">Authenticated as @{currentUser.username}.</p>
+              <div className="text-2xl font-bold text-white font-mono">{isOwner ? 'Bot Owner' : currentUser.role}</div>
+              <p className="text-[11px] text-[#737373]">Logged in as @{currentUser.username || 'wenpathy'}.</p>
             </div>
           </div>
 
@@ -582,150 +702,7 @@ export const StaffPage: React.FC = () => {
       )}
 
       {/* ========================================================
-          TAB 2: STAFF WHITELIST (OWNER CONTROL)
-          ======================================================== */}
-      {activeTab === 'whitelist' && isOwnerOrAdmin && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <UserPlus className="w-4 h-4 text-white" />
-                <span>Authorize New Discord User ID</span>
-              </h3>
-              <p className="text-xs text-[#888]">
-                Add any person&apos;s Discord snowflake ID. Once added, logging in with Discord grants them staff access.
-              </p>
-            </div>
-
-            <form onSubmit={handleAddStaff} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-              <div className="space-y-1">
-                <label className="text-[#a3a3a3] font-medium">Discord User ID *</label>
-                <input
-                  type="text"
-                  value={newDiscordId}
-                  onChange={(e) => setNewDiscordId(e.target.value)}
-                  placeholder="e.g. 987654321098765432"
-                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white font-mono focus:outline-none focus:border-[#444]"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[#a3a3a3] font-medium">Display Name / Nickname</label>
-                <input
-                  type="text"
-                  value={newDisplayName}
-                  onChange={(e) => setNewDisplayName(e.target.value)}
-                  placeholder="e.g. Alex"
-                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white focus:outline-none focus:border-[#444]"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[#a3a3a3] font-medium">Staff Role</label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value as StaffRole)}
-                  className="w-full px-3 py-2 rounded bg-[#000] border border-[#222] text-white focus:outline-none focus:border-[#444]"
-                >
-                  <option value="Administrator">Administrator</option>
-                  <option value="Senior Moderator">Senior Moderator</option>
-                  <option value="Moderator">Moderator</option>
-                  <option value="Support">Support Staff</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[#a3a3a3] font-medium">Action</label>
-                <button
-                  type="submit"
-                  className="w-full py-2 rounded font-semibold text-black bg-white hover:bg-[#e0e0e0] transition-colors"
-                >
-                  Authorize Staff ID
-                </button>
-              </div>
-            </form>
-
-            {whitelistMsg && (
-              <div
-                className={`p-2.5 rounded text-xs ${
-                  whitelistMsg.type === 'success'
-                    ? 'bg-[#0a140a] border border-[#153015] text-emerald-300'
-                    : 'bg-[#140a0a] border border-[#301515] text-rose-300'
-                }`}
-              >
-                {whitelistMsg.text}
-              </div>
-            )}
-          </div>
-
-          {/* Current Staff Whitelist Table */}
-          <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-4">
-            <h3 className="text-sm font-bold text-white tracking-tight">
-              Authorized Staff Members ({staffList.length})
-            </h3>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-[#171717] text-[#555] font-mono text-[10px]">
-                    <th className="py-2 px-2.5">Discord ID</th>
-                    <th className="py-2 px-2.5">Display Name & Username</th>
-                    <th className="py-2 px-2.5">Role</th>
-                    <th className="py-2 px-2.5">Added Date</th>
-                    <th className="py-2 px-2.5">Authorized By</th>
-                    <th className="py-2 px-2.5 text-right">Revoke Access</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#121212]">
-                  {staffList.map((m) => (
-                    <tr key={m.discordId} className="hover:bg-[#0d0d0d]">
-                      <td className="py-2.5 px-2.5 font-mono text-white">{m.discordId}</td>
-                      <td className="py-2.5 px-2.5">
-                        <div className="font-medium text-[#ededed]">{m.displayName}</div>
-                        {m.username && (
-                          <div className="text-[10px] font-mono text-[#666]">@{m.username}</div>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2.5">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase ${
-                            m.role === 'Owner'
-                              ? 'bg-[#222] text-white border border-[#333]'
-                              : m.role === 'Administrator'
-                              ? 'bg-[#181818] text-[#e0e0e0] border border-[#2c2c2c]'
-                              : 'bg-[#121212] text-[#888] border border-[#1f1f1f]'
-                          }`}
-                        >
-                          {m.role}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-2.5 text-[#666] font-mono text-[11px]">{m.addedAt}</td>
-                      <td className="py-2.5 px-2.5 text-[#666]">{m.addedBy}</td>
-                      <td className="py-2.5 px-2.5 text-right">
-                        {m.role !== 'Owner' && m.discordId !== currentUser.discordId ? (
-                          <button
-                            onClick={() => handleRemoveStaff(m.discordId)}
-                            className="p-1 rounded text-rose-400 hover:text-white hover:bg-rose-950/40 transition-colors"
-                            title="Revoke access"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-[#444] italic">Protected</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================
-          TAB 3: COMMAND BUILDER
+          TAB: COMMAND BUILDER
           ======================================================== */}
       {activeTab === 'generator' && (
         <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-6">
@@ -936,7 +913,7 @@ export const StaffPage: React.FC = () => {
       )}
 
       {/* ========================================================
-          TAB 4: INCIDENT RUNBOOKS
+          TAB: INCIDENT RUNBOOKS
           ======================================================== */}
       {activeTab === 'runbooks' && (
         <div className="space-y-6">
@@ -974,7 +951,7 @@ export const StaffPage: React.FC = () => {
       )}
 
       {/* ========================================================
-          TAB 5: REASON TEMPLATES
+          TAB: REASON TEMPLATES
           ======================================================== */}
       {activeTab === 'templates' && (
         <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-6">
@@ -1026,7 +1003,7 @@ export const StaffPage: React.FC = () => {
       )}
 
       {/* ========================================================
-          TAB 6: CARD DESIGNER
+          TAB: CARD DESIGNER
           ======================================================== */}
       {activeTab === 'appearance' && (
         <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-6">
@@ -1059,7 +1036,7 @@ export const StaffPage: React.FC = () => {
       )}
 
       {/* ========================================================
-          TAB 7: DETAILED AUDIT TRAIL (EVERY USER LOGIN & LOGOUT)
+          TAB: AUDIT TRAIL
           ======================================================== */}
       {activeTab === 'audit' && (
         <div className="p-6 rounded-xl bg-[#080808] border border-[#171717] space-y-5">

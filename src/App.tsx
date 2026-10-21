@@ -10,6 +10,7 @@ import { SetupPage } from './pages/SetupPage';
 import { PermissionsPage } from './pages/PermissionsPage';
 import { AboutPage } from './pages/AboutPage';
 import { StaffPage } from './pages/StaffPage';
+import { OwnerPage } from './pages/OwnerPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 
 // Helper to scroll to top on page navigation
@@ -41,6 +42,8 @@ export function App() {
               <Route path="/permissions" element={<PermissionsPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/staff" element={<StaffPage />} />
+              <Route path="/owner" element={<OwnerPage />} />
+              <Route path="/staff/owner" element={<OwnerPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </main>

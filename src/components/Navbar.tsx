@@ -3,6 +3,7 @@ import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { BOT_CONFIG } from '../config/bot';
 import { useAuth } from '../context/AuthContext';
+import { staffAuthService } from '../services/staffAuth';
 import { Menu, X, ArrowUpRight, LogOut, Shield } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
@@ -10,6 +11,9 @@ export const Navbar: React.FC = () => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const { currentUser, loginWithDiscord, logout } = useAuth();
   const navigate = useNavigate();
+
+  const isOwner = currentUser ? staffAuthService.isOwner(currentUser.discordId) : false;
+  const isStaff = currentUser?.isStaff || isOwner;
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -47,8 +51,25 @@ export const Navbar: React.FC = () => {
               </NavLink>
             ))}
 
-            {/* Staff link visible in navbar if user is staff */}
-            {currentUser?.isStaff && (
+            {/* Owner link visible in navbar if user is root owner */}
+            {isOwner && (
+              <NavLink
+                to="/owner"
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                    isActive
+                      ? 'text-amber-300 bg-amber-400/10 border border-amber-400/30'
+                      : 'text-amber-300/80 hover:text-amber-300 hover:bg-[#111] border border-amber-400/20'
+                  }`
+                }
+              >
+                <span>👑</span>
+                <span>Owner Panel</span>
+              </NavLink>
+            )}
+
+            {/* Staff link visible in navbar if user is staff or owner */}
+            {isStaff && (
               <NavLink
                 to="/staff"
                 className={({ isActive }) =>
@@ -125,6 +146,20 @@ export const Navbar: React.FC = () => {
                       </div>
                     </div>
 
+                    {isOwner && (
+                      <Link
+                        to="/owner"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center justify-between w-full px-2.5 py-1.5 rounded text-amber-300 bg-amber-400/5 hover:bg-amber-400/10 border border-amber-400/20 transition-colors font-medium"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>👑</span>
+                          <span>Owner Panel</span>
+                        </span>
+                        <span className="text-[9px] text-amber-300 font-mono font-bold">ROOT</span>
+                      </Link>
+                    )}
+
                     <Link
                       to="/staff"
                       onClick={() => setUserDropdownOpen(false)}
@@ -132,10 +167,10 @@ export const Navbar: React.FC = () => {
                     >
                       <span className="flex items-center gap-1.5">
                         <Shield className="w-3.5 h-3.5" />
-                        <span>Staff Panel</span>
+                        <span>Staff Moderation</span>
                       </span>
-                      {currentUser.isStaff ? (
-                        <span className="text-[9px] text-emerald-400 font-mono">Authorized</span>
+                      {isStaff ? (
+                        <span className="text-[9px] text-emerald-400 font-mono">Access</span>
                       ) : (
                         <span className="text-[9px] text-[#555] font-mono">Staff Only</span>
                       )}
@@ -190,6 +225,16 @@ export const Navbar: React.FC = () => {
               {link.name}
             </NavLink>
           ))}
+
+          {isOwner && (
+            <NavLink
+              to="/owner"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md text-sm font-semibold text-amber-300 bg-amber-400/10 border border-amber-400/20"
+            >
+              👑 Owner Panel
+            </NavLink>
+          )}
 
           <NavLink
             to="/staff"

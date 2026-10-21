@@ -56,29 +56,59 @@ const STORAGE_KEYS = {
   OWNER_ID: 'obsess_owner_discord_id_v1',
 };
 
-// Initial default staff seed
+// Root Bot & Website Owner ID: Frosty / @wenpathy
+export const PRIMARY_OWNER_ID = '1094287436881862736';
+
+// Initial default staff seed with Frosty as permanent root owner
 const DEFAULT_STAFF: StaffMember[] = [
   {
+    discordId: PRIMARY_OWNER_ID,
+    displayName: 'Frosty',
+    username: 'wenpathy',
+    role: 'Owner',
+    addedAt: '2026-10-21',
+    addedBy: 'System Root',
+    notes: 'Primary Bot & Website Owner (Frosty / @wenpathy).',
+  },
+  {
     discordId: '1562050707081662538',
-    displayName: 'Website Owner',
-    username: 'obsess_owner',
+    displayName: 'obsess App ID',
+    username: 'obsess_app',
     role: 'Owner',
     addedAt: '2026-10-21',
     addedBy: 'System Init',
-    notes: 'Default root owner account.',
+    notes: 'Application Client ID.',
   },
 ];
 
 export const staffAuthService = {
+  // Check if given Discord ID has owner rights
+  isOwner(discordId: string): boolean {
+    const cleanId = discordId.trim();
+    return (
+      cleanId === PRIMARY_OWNER_ID ||
+      cleanId === this.getOwnerId() ||
+      cleanId === '1562050707081662538'
+    );
+  },
+
   // Get all registered staff members
   getStaffList(): StaffMember[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.MEMBERS);
-      if (!data) {
-        localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(DEFAULT_STAFF));
-        return DEFAULT_STAFF;
+      let list: StaffMember[] = data ? JSON.parse(data) : DEFAULT_STAFF;
+
+      // Guarantee Frosty is always in the whitelist with Owner role
+      const hasFrosty = list.find((m) => m.discordId === PRIMARY_OWNER_ID);
+      if (!hasFrosty) {
+        list.unshift(DEFAULT_STAFF[0]);
+        this.saveStaffList(list);
+      } else if (hasFrosty.role !== 'Owner') {
+        hasFrosty.role = 'Owner';
+        this.saveStaffList(list);
       }
-      return JSON.parse(data);
+
+      return list;
     } catch {
       return DEFAULT_STAFF;
     }
@@ -91,7 +121,7 @@ export const staffAuthService = {
 
   // Get configured Owner Discord ID
   getOwnerId(): string {
-    return localStorage.getItem(STORAGE_KEYS.OWNER_ID) || '1562050707081662538';
+    return localStorage.getItem(STORAGE_KEYS.OWNER_ID) || PRIMARY_OWNER_ID;
   },
 
   // Set/update the Owner Discord ID
@@ -112,22 +142,22 @@ export const staffAuthService = {
         role: 'Owner',
         addedAt: new Date().toISOString().split('T')[0],
         addedBy: 'Owner Claim',
-        notes: 'Primary server owner.',
+        notes: 'Configured server owner.',
       });
       this.saveStaffList(list);
     }
 
     this.logAction({
       actorId: cleanId,
-      actorUsername: 'website_owner',
+      actorUsername: 'owner',
       actorDisplayName: 'Website Owner',
       action: 'Owner Set',
-      details: `Root owner Discord ID set to ${cleanId}`,
+      details: `Owner Discord ID configured as ${cleanId}`,
     });
   },
 
   // Generate Discord OAuth2 Authorization URL
-  getDiscordOAuthUrl(returnPath: string = '/'): string {
+  getDiscordOAuthUrl(returnPath: string = '/staff'): string {
     const clientId = '1562050707081662538';
     const redirectUri = encodeURIComponent(window.location.origin + returnPath);
     return `https://discord.com/oauth2/authorize?client_id=${clientId}&response_type=token&scope=identify&redirect_uri=${redirectUri}`;
@@ -169,14 +199,13 @@ export const staffAuthService = {
     avatar: string | null;
   }): { success: boolean; user: UserProfile } {
     const staffList = this.getStaffList();
-    const ownerId = this.getOwnerId();
+    const isOwner = this.isOwner(discordUser.id);
 
     const avatarUrl = discordUser.avatar
       ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
       : `https://cdn.discordapp.com/embed/avatars/${parseInt(discordUser.id.slice(-2)) % 5}.png`;
 
     const displayName = discordUser.global_name || discordUser.username;
-    const isOwner = discordUser.id === ownerId;
 
     let matchedStaff = staffList.find((m) => m.discordId === discordUser.id);
     let role: UserRole = 'Community Member';
@@ -193,7 +222,7 @@ export const staffAuthService = {
           avatarUrl,
           role: 'Owner',
           addedAt: new Date().toISOString().split('T')[0],
-          addedBy: 'Owner Auto-Match',
+          addedBy: 'Root Owner Auto-Match',
         };
         staffList.unshift(matchedStaff);
       } else {
@@ -224,7 +253,7 @@ export const staffAuthService = {
 
     localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(profile));
 
-    // Audit trail records every single user login with both username and user ID!
+    // Audit trail records every single user login with both username and user ID
     this.logAction({
       actorId: profile.discordId,
       actorUsername: profile.username,
@@ -244,21 +273,19 @@ export const staffAuthService = {
     }
 
     const staffList = this.getStaffList();
-    const ownerId = this.getOwnerId();
-
-    const isOwner = cleanId === ownerId;
+    const isOwner = this.isOwner(cleanId);
     const matchedStaff = staffList.find((m) => m.discordId === cleanId);
 
     let role: UserRole = 'Community Member';
     let isStaff = false;
-    let displayName = customUsername || `User-${cleanId.slice(-4)}`;
-    let username = customUsername ? customUsername.toLowerCase().replace(/\s+/g, '_') : `user_${cleanId.slice(-4)}`;
+    let displayName = customUsername || (isOwner ? 'Frosty' : `User-${cleanId.slice(-4)}`);
+    let username = customUsername ? customUsername.toLowerCase().replace(/\s+/g, '_') : (isOwner ? 'wenpathy' : `user_${cleanId.slice(-4)}`);
 
     if (isOwner) {
       role = 'Owner';
       isStaff = true;
-      displayName = 'Website Owner';
-      username = 'obsess_owner';
+      displayName = 'Frosty';
+      username = 'wenpathy';
     } else if (matchedStaff) {
       role = matchedStaff.role;
       isStaff = true;
@@ -288,12 +315,24 @@ export const staffAuthService = {
     return { success: true, user: profile };
   },
 
-  // Get currently active user session
+  // Get currently active user session with automatic owner elevation check
   getCurrentUser(): UserProfile | null {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.SESSION);
       if (!data) return null;
-      return JSON.parse(data);
+      const profile: UserProfile = JSON.parse(data);
+
+      // Auto-elevate Frosty (@wenpathy) immediately if they already logged in as Community Member
+      if (this.isOwner(profile.discordId)) {
+        if (!profile.isOwner || profile.role !== 'Owner' || !profile.isStaff) {
+          profile.role = 'Owner';
+          profile.isStaff = true;
+          profile.isOwner = true;
+          localStorage.setItem(STORAGE_KEYS.SESSION, JSON.stringify(profile));
+        }
+      }
+
+      return profile;
     } catch {
       return null;
     }
@@ -320,7 +359,7 @@ export const staffAuthService = {
     actor: UserProfile
   ): { success: boolean; error?: string } {
     if (!actor.isOwner && actor.role !== 'Administrator') {
-      return { success: false, error: 'Only the Website Owner or Administrators can add staff members.' };
+      return { success: false, error: 'Only the Website Owner (Frosty) or Administrators can add staff members.' };
     }
 
     const cleanId = newMember.discordId.trim();
@@ -365,12 +404,12 @@ export const staffAuthService = {
       return { success: false, error: 'You cannot revoke your own staff access.' };
     }
 
+    if (this.isOwner(targetDiscordId)) {
+      return { success: false, error: 'Cannot revoke access from the Website Owner (Frosty).' };
+    }
+
     const list = this.getStaffList();
     const target = list.find((m) => m.discordId === targetDiscordId);
-
-    if (target?.role === 'Owner') {
-      return { success: false, error: 'Cannot remove the Website Owner.' };
-    }
 
     const updated = list.filter((m) => m.discordId !== targetDiscordId);
     this.saveStaffList(updated);
