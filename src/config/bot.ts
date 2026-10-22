@@ -2,6 +2,7 @@ import type { BotConfig } from '../types';
 
 export const BOT_CONFIG: BotConfig = {
   botName: 'obsess',
+  avatarUrl: '/bot-pfp.jpg',
   brandTagline: 'Moderation. Control. Simplicity.',
   brandDescription:
     'Take control of your Discord server with powerful moderation tools, advanced role management, channel controls, detailed moderation logs, and customizable server settings.',

@@ -39,6 +39,7 @@ export interface BotCommand {
 
 export interface BotConfig {
   botName: string;
+  avatarUrl: string;
   brandTagline: string;
   brandDescription: string;
   clientId: string;

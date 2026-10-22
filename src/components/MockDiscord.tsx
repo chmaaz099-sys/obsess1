@@ -157,9 +157,11 @@ export const MockDiscord: React.FC = () => {
 
               {/* Bot Response Embed */}
               <div className="flex items-start gap-3 pl-2 border-l border-[#333]">
-                <div className="w-8 h-8 rounded-full bg-black border border-[#262626] flex items-center justify-center text-white font-mono text-[11px]">
-                  ob
-                </div>
+                <img
+                  src="/bot-pfp.jpg"
+                  alt="obsess"
+                  className="w-8 h-8 rounded-full object-cover border border-[#262626]"
+                />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-xs lowercase">obsess</span>
@@ -214,9 +216,11 @@ export const MockDiscord: React.FC = () => {
               </div>
 
               <div className="flex items-start gap-3 pl-2 border-l border-[#333]">
-                <div className="w-8 h-8 rounded-full bg-black border border-[#262626] flex items-center justify-center text-white font-mono text-[11px]">
-                  ob
-                </div>
+                <img
+                  src="/bot-pfp.jpg"
+                  alt="obsess"
+                  className="w-8 h-8 rounded-full object-cover border border-[#262626]"
+                />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-xs lowercase">obsess</span>
@@ -260,9 +264,11 @@ export const MockDiscord: React.FC = () => {
               </div>
 
               <div className="flex items-start gap-3 pl-2 border-l border-[#333]">
-                <div className="w-8 h-8 rounded-full bg-black border border-[#262626] flex items-center justify-center text-white font-mono text-[11px]">
-                  ob
-                </div>
+                <img
+                  src="/bot-pfp.jpg"
+                  alt="obsess"
+                  className="w-8 h-8 rounded-full object-cover border border-[#262626]"
+                />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-xs lowercase">obsess</span>
@@ -305,9 +311,11 @@ export const MockDiscord: React.FC = () => {
               </div>
 
               <div className="flex items-start gap-3 pl-2 border-l border-[#333]">
-                <div className="w-8 h-8 rounded-full bg-black border border-[#262626] flex items-center justify-center text-white font-mono text-[11px]">
-                  ob
-                </div>
+                <img
+                  src="/bot-pfp.jpg"
+                  alt="obsess"
+                  className="w-8 h-8 rounded-full object-cover border border-[#262626]"
+                />
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-white text-xs lowercase">obsess</span>

@@ -561,6 +561,22 @@ export const OwnerPage: React.FC = () => {
             </h3>
 
             <div className="space-y-3 text-xs">
+              <div className="p-4 rounded-lg bg-[#000] border border-[#1a1a1a] flex items-center gap-4">
+                <img
+                  src="/bot-pfp.jpg"
+                  alt="obsess bot avatar"
+                  className="w-14 h-14 rounded-2xl object-cover border border-[#2a2a2a]"
+                />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">obsess</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#5865F2] text-white font-semibold">BOT</span>
+                  </div>
+                  <div className="text-[11px] font-mono text-[#888]">ID: {BOT_CONFIG.clientId}</div>
+                  <div className="text-[10px] text-emerald-400 font-mono">● Active Production Avatar</div>
+                </div>
+              </div>
+
               <div className="p-3 rounded-lg bg-[#000] border border-[#1a1a1a] space-y-1">
                 <div className="text-[10px] font-mono uppercase text-[#666]">Discord Application Client ID</div>
                 <div className="font-mono text-white text-sm flex items-center justify-between">

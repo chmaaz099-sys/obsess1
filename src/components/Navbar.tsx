@@ -16,12 +16,12 @@ export const Navbar: React.FC = () => {
   const isStaff = currentUser?.isStaff || isOwner;
 
   const navLinks = [
-    { name: 'Home', path: '/' },
     { name: 'Commands', path: '/commands' },
+    { name: 'Status', path: '/status', hasBadge: true },
+    { name: 'Avatars', path: '/avatars' },
+    { name: 'Embeds', path: '/embeds' },
     { name: 'Features', path: '/features' },
-    { name: 'Setup', path: '/setup' },
-    { name: 'Permissions', path: '/permissions' },
-    { name: 'About', path: '/about' },
+    { name: 'FAQ', path: '/faq' },
   ];
 
   return (
@@ -40,14 +40,17 @@ export const Navbar: React.FC = () => {
                 key={link.path}
                 to={link.path}
                 className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  `px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
                     isActive
                       ? 'text-white bg-[#141414] border border-[#242424]'
                       : 'text-[#8e8e8e] hover:text-[#d1d1d1] hover:bg-[#0c0c0c]'
                   }`
                 }
               >
-                {link.name}
+                {link.hasBadge && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+                <span>{link.name}</span>
               </NavLink>
             ))}
 
@@ -87,7 +90,16 @@ export const Navbar: React.FC = () => {
           </nav>
 
           {/* Right Action Buttons & Discord Auth */}
-          <div className="hidden md:flex items-center gap-2.5">
+          <div className="hidden md:flex items-center gap-2">
+            <a
+              href={BOT_CONFIG.supportServerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-[#8e8e8e] hover:text-white bg-[#0a0a0a] hover:bg-[#121212] border border-[#1f1f1f] transition-colors"
+            >
+              Support
+            </a>
+
             <a
               href={BOT_CONFIG.inviteUrl}
               target="_blank"
@@ -274,6 +286,15 @@ export const Navbar: React.FC = () => {
               className="w-full text-center py-2 rounded-md text-xs font-medium text-[#888] hover:text-white bg-[#0a0a0a] border border-[#1f1f1f]"
             >
               Invite Bot
+            </a>
+
+            <a
+              href={BOT_CONFIG.supportServerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full text-center py-2 rounded-md text-xs font-medium text-[#888] hover:text-white bg-[#0a0a0a] border border-[#1f1f1f]"
+            >
+              Support Server
             </a>
           </div>
         </div>
